@@ -10,5 +10,6 @@ namespace GamePortal.API.Models
         public long Amount { get; set; }
         public long Balance { get; set; }
         public int Type { get; set; }
+        public string GameName { get; set; }
     }
 }

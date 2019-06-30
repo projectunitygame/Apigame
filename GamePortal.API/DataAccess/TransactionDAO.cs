@@ -102,6 +102,12 @@ namespace GamePortal.API.DataAccess
             return db.GetList<GameGoldTransaction>($"SELECT TOP({records}) * FROM log.V_GameGoldTransaction where AccountId = {accountId} ORDER BY CreatedTime DESC");
         }
 
+        public static List<GameGoldTransaction> GetGameGoldTransaction_v1(long accountId, int records)
+        {
+            DBHelper db = new DBHelper(GateConfig.DbConfig);
+            return db.GetList<GameGoldTransaction>($"SELECT TOP({records}) * FROM log.V_GameGoldTransaction_v1 where AccountId = {accountId} ORDER BY CreatedTime DESC");
+        }
+
         public static List<TopupGold> GetTopupGold(long accountId, int records)
         {
             DBHelper db = new DBHelper(GateConfig.DbConfig);

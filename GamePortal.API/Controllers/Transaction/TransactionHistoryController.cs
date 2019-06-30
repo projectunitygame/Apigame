@@ -17,32 +17,44 @@ namespace GamePortal.API.Controllers.Transaction
             try
             {
                 var accountId = AccountSession.AccountID;
-                var trans = TransactionDAO.GetGameGoldTransaction(accountId, 200);
-                var games = GameDAO.GameList(accountId);
+                var trans = TransactionDAO.GetGameGoldTransaction_v1(accountId, 200);
+                return trans.Select(x => new PlayLog()
+                {
+                    Amount = x.Amount,
+                    Balance = x.Balance,
+                    CreatedTime = x.CreatedTime,
+                    ID = x.ID,
+                    GameName = x.GameName,
+                    Type = x.Type
+                }).ToList();
 
-                var linq = (from item in trans
-                           join game in games on item.GameId equals game.ID
-                           into plays
 
-                           from play in plays.DefaultIfEmpty()
-                           select new
-                           {
-                               ID = item.ID,
-                               GameName = play.Name,
-                               CreatedTime = item.CreatedTime,
-                               Amount = item.Amount,
-                               Balance = item.Balance,
-                               Type = item.Type
-                           }).Select(x => new PlayLog {
-                               ID = x.ID,
-                               GameName = x.GameName,
-                               CreatedTime = x.CreatedTime,
-                               Amount = x.Amount,
-                               Balance = x.Balance,
-                               Type = x.Type
-                           });
 
-                return linq.ToList();
+                //var games = GameDAO.GameList(accountId);
+
+                //var linq = (from item in trans
+                //           join game in games on item.GameId equals game.ID
+                //           into plays
+
+                //           from play in plays.DefaultIfEmpty()
+                //           select new
+                //           {
+                //               ID = item.ID,
+                //               GameName = play.Name,
+                //               CreatedTime = item.CreatedTime,
+                //               Amount = item.Amount,
+                //               Balance = item.Balance,
+                //               Type = item.Type
+                //           }).Select(x => new PlayLog {
+                //               ID = x.ID,
+                //               GameName = x.GameName,
+                //               CreatedTime = x.CreatedTime,
+                //               Amount = x.Amount,
+                //               Balance = x.Balance,
+                //               Type = x.Type
+                //           });
+
+                //return linq.ToList();
             }
             catch (Exception ex)
             {
