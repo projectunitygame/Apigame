@@ -17,6 +17,8 @@ namespace GamePortal.API.Controllers.Transaction
             try
             {
                 var accountId = AccountSession.AccountID;
+
+
                 var trans = TransactionDAO.GetGameGoldTransaction_v1(accountId, 200);
                 return trans.Select(x => new PlayLog()
                 {
