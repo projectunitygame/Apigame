@@ -20,10 +20,10 @@ namespace GamePortal.API
 
             GlobalConfiguration.Configure(WebApiConfig.Register);
             PayIndexCounter.Init();
-            //NLogManager.LogMessage("***** START SERVER *****");
-            //DBHelper db = new DBHelper(GateConfig.DbConfig);
-            //NLogManager.LogMessage("Connect db: " + db.OpenConnection().State);
-            //db.Close();
+            NLogManager.LogMessage("***** START SERVER *****");
+            DBHelper db = new DBHelper(GateConfig.DbConfig);
+            NLogManager.LogMessage("Connect db: " + db.OpenConnection().State);
+            db.Close();
         }
 
         private static string ByteToString(byte[] buff)
