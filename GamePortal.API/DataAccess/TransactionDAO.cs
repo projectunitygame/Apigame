@@ -96,28 +96,28 @@ namespace GamePortal.API.DataAccess
         }
         #endregion
         #region History
-        public static List<GameGoldTransaction> GetGameGoldTransaction(long accountId, int records)
-        {
-            DBHelper db = new DBHelper(GateConfig.DbConfig);
-            return db.GetList<GameGoldTransaction>($"SELECT TOP({records}) * FROM log.V_GameGoldTransaction where AccountId = {accountId} ORDER BY CreatedTime DESC");
-        }
+        //public static List<GameGoldTransaction> GetGameGoldTransaction(long accountId, int records)
+        //{
+        //    DBHelper db = new DBHelper(GateConfig.DbConfig);
+        //    return db.GetList<GameGoldTransaction>($"SELECT TOP({records}) * FROM log.V_GameGoldTransaction where AccountId = {accountId} ORDER BY CreatedTime DESC");
+        //}
 
         public static List<GameGoldTransaction> GetGameGoldTransaction_v1(long accountId, int records)
         {
             DBHelper db = new DBHelper(GateConfig.DbConfig);
-            return db.GetList<GameGoldTransaction>($"SELECT TOP({records}) * FROM log.V_GameGoldTransaction_v1 where AccountId = {accountId} ORDER BY CreatedTime DESC");
+            return db.GetList<GameGoldTransaction>($"SELECT TOP({records}) * FROM log.V_GameGoldTransaction_v1 where AccountId = {accountId} ORDER BY ID DESC");
         }
 
         public static List<TopupGold> GetTopupGold(long accountId, int records)
         {
             DBHelper db = new DBHelper(GateConfig.DbConfig);
-            return db.GetList<TopupGold>($"SELECT TOP({records}) * FROM log.V_TopupGold where AccountId = {accountId} ORDER BY CreatedTime DESC");
+            return db.GetList<TopupGold>($"SELECT TOP({records}) * FROM log.V_TopupGold where AccountId = {accountId} ORDER BY ID DESC");
         }
 
         public static List<DeductGold> GetDeductGold(long accountId, int records)
         {
             DBHelper db = new DBHelper(GateConfig.DbConfig);
-            return db.GetList<DeductGold>($"SELECT TOP({records}) * FROM log.V_DeductGold where AccountId = {accountId} ORDER BY CreatedTime DESC");
+            return db.GetList<DeductGold>($"SELECT TOP({records}) * FROM log.V_DeductGold where AccountId = {accountId} ORDER BY ID DESC");
         }
         #endregion
         #region send gold
