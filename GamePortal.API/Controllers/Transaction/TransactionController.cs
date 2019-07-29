@@ -29,22 +29,59 @@ namespace GamePortal.API.Controllers.Transaction
         [HttpGet, HttpOptions, Authorize]
         public long Transfer(string accountName, long amount, string reason, string captcha, string token)
         {
+            NLogManager.LogMessage("Transfer info: " + accountName + "|" + amount + "|" + reason);
             try
             {
-                int captchaVeriryStatus = Utilities.Captcha.Verify(captcha, token);
-                if (captchaVeriryStatus < 0) return captchaVeriryStatus;
                 var account = AccountDAO.GetAccountByAccountName(accountName);
                 if (account == null)
+                {
+                    NLogManager.LogMessage("EX Result transfer: " + -58);
                     return -58;
+                }
+                NLogManager.LogMessage("AccountInfo: " + JsonConvert.SerializeObject(account));
+                int captchaVeriryStatus = Utilities.Captcha.Verify(captcha, token);
+                if (captchaVeriryStatus < 0) return captchaVeriryStatus;
+
+                #region Chuyen gold to daily
+                var accountSandbox = ConfigurationManager.AppSettings["AccountSandbox"].Split(',').ToList();
+                NLogManager.LogMessage("accountSandbox: " + String.Join(",", accountSandbox));
+                //var accountId = AccountSession.AccountID;
+                if (accountSandbox.Count > 0)
+                {
+                    if (accountSandbox.Count(x=>x == account.AccountID.ToString()) > 0)
+                    {
+                        int code = 0;
+                        string msg = "";
+                        string phone = "";
+                        amount = (long)(amount / 1.02);
+                        NLogManager.LogMessage($"Transfer to agency => {accountName}|{amount}|{reason}");
+                        var d = TransactionDAO.SendGold_v1(account.AccountID, accountName, amount, reason, IPAddressHelper.GetClientIP(), ref code, ref msg, ref phone);
+                        NLogManager.LogMessage("result transfer agency: " + JsonConvert.SerializeObject(d) + 
+                            "\r\ncode: " + code + 
+                            "\r\nmsg: " + msg + 
+                            "\r\nphone: " + phone);
+                        if (code == 1 && !string.IsNullOrEmpty(phone))
+                        {
+                            Models.SMS.SmsService.SendMessage(phone, "yeu cau chuyen tien " + account.Username + " so tien " + formatMoney(amount));
+                        }
+                        return code == 1 ? d.Balance : code;
+                    }
+                }
+                #endregion
+
                 if (amount < 10200)
+                {
+                    NLogManager.LogMessage("EX Result transfer: " + -80);
                     return -80;
+                }
                 NLogManager.LogMessage($"Transfer => {accountName}|{amount}|{reason}");
                 amount = (long)(amount / 1.02);
                 var myAccount = AccountDAO.GetAccountById(AccountSession.AccountID);
+                NLogManager.LogMessage(JsonConvert.SerializeObject(myAccount));
                 if (!myAccount.IsAgency)
                 {
                     long totalTransfer = amount + (long)(amount * 0.02);
-                    return TransactionDAO.SendGold(AccountSession.AccountID,
+                    long r = TransactionDAO.SendGold(AccountSession.AccountID,
                         account.AccountID,
                         AccountSession.AccountName,
                         account.DisplayName,
@@ -52,12 +89,15 @@ namespace GamePortal.API.Controllers.Transaction
                         totalTransfer,
                         amount,
                         reason);
+                    NLogManager.LogMessage("Result transfer: " + r);
+                    return r;
                 }
                 else
                 {
                     var agencyInfo = AccountDAO.GetAgencyInfo(AccountSession.AccountID);
                     if (agencyInfo.Level == 2)
-                        return TransactionDAO.Transfer(
+                    {
+                        long r = TransactionDAO.Transfer(
                                 agencyInfo.ID,
                                 agencyInfo.GameAccountId,
                                 agencyInfo.Username,
@@ -69,15 +109,23 @@ namespace GamePortal.API.Controllers.Transaction
                                 account.DisplayName,
                                 account.IsAgency
                             );
+                        NLogManager.LogMessage("Result transfer: " + r);
+                        return r;
+                    }
                     else
+                    {
+                        NLogManager.LogMessage("Result transfer: " + -99);
                         return -99;
+                    }
                 }
             }
             catch (Exception ex)
             {
+                NLogManager.LogError("Transfer ERROR: " + ex);
                 NLogManager.PublishException(ex);
+                NLogManager.LogMessage("EX Result transfer: " + ex);
             }
-
+            NLogManager.LogMessage("EX Result transfer: " + -99);
             return -99;
         }
 
@@ -278,7 +326,10 @@ namespace GamePortal.API.Controllers.Transaction
             return -99;
         }
 
-
+        public static string formatMoney(long money)
+        {
+            return String.Format("{0:#,###}", money).Replace(",", ".");
+        }
 
         private string dateTt()
         {

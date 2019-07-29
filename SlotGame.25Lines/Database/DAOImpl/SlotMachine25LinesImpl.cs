@@ -65,6 +65,7 @@ namespace SlotGame._25Lines.Database.DAOImpl
         {
             try
             {
+                string s = "[tamquoc] SpinInfo: " + JsonConvert.SerializeObject(inputData);
                 var ipAddress = "";
                 var db = new DBHelper(Config.Game25LinesConnectionString);
                 var pars = new SqlParameter[18];
@@ -97,10 +98,13 @@ namespace SlotGame._25Lines.Database.DAOImpl
                     Balance = pars[16].Value != DBNull.Value ? long.Parse(pars[16].Value.ToString()) : 0,
                     ResponseStatus = pars[17].Value != DBNull.Value ? int.Parse(pars[17].Value.ToString()) : -98
                 };
-
-                NLogManager.LogMessage($"Spin => AccountId:{inputData.AccountId}|AccountName:{inputData.AccountName}|RoomId:{inputData.RoomId}|MoneyType:{inputData.MoneyType}|LineData:{inputData.LineData}|Ip:{ipAddress}" +
-                                       $"ToTalBetValue:{inputData.TotalBetValue}|SlotsData:{inputData.SlotsData}|IsJackpot:{inputData.IsJackpot}|AddFreeSpins:{inputData.AddFreeSpins}|TotalPrizeValue:{inputData.TotalPrizeValue}" +
-                                       $"TotalBonusValue:{inputData.TotalBonusValue}|SpinId:{pars[12].Value}|TotalJackpotValue:{pars[13].Value}|FreeSpins:{pars[14].Value}|Jackpot:{pars[15].Value}|Balance:{pars[16].Value}|Response:{pars[17].Value}");
+                s += "\r\nResult spin: " + JsonConvert.SerializeObject(pars) +
+                   "\r\n" + JsonConvert.SerializeObject(pars.Select(x => x.Value).ToArray());
+                //NLogManager.LogMessage($"Spin => AccountId:{inputData.AccountId}|AccountName:{inputData.AccountName}|RoomId:{inputData.RoomId}|MoneyType:{inputData.MoneyType}|LineData:{inputData.LineData}|Ip:{ipAddress}" +
+                //                       $"ToTalBetValue:{inputData.TotalBetValue}|SlotsData:{inputData.SlotsData}|IsJackpot:{inputData.IsJackpot}|AddFreeSpins:{inputData.AddFreeSpins}|TotalPrizeValue:{inputData.TotalPrizeValue}" +
+                //                       $"TotalBonusValue:{inputData.TotalBonusValue}|SpinId:{pars[12].Value}|TotalJackpotValue:{pars[13].Value}|FreeSpins:{pars[14].Value}|Jackpot:{pars[15].Value}|Balance:{pars[16].Value}|Response:{pars[17].Value}");
+                s += "\r\nResponse data: " + JsonConvert.SerializeObject(outPutData);
+                NLogManager.LogMessage(s);
                 return outPutData;
             }
             catch (Exception ex)

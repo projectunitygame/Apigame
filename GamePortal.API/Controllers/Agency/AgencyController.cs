@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Web.Http;
 using Utilities.Log;
+using Utilities.Session;
 
 namespace GamePortal.API.Controllers.Agency
 {
@@ -16,6 +17,15 @@ namespace GamePortal.API.Controllers.Agency
             {
                 if(!string.IsNullOrEmpty(ConfigurationManager.AppSettings["CloseAgencies"]))
                     return new List<Models.Agency>();
+                var accountSandbox = ConfigurationManager.AppSettings["AccountSandbox"];
+                var accountId = AccountSession.AccountID;
+                if (!string.IsNullOrEmpty(accountSandbox))
+                {
+                    if (accountSandbox.Contains(accountId.ToString()))
+                    {
+                        return AgencyDAO.GetAllAgency_v1();
+                    }
+                }
                 return AgencyDAO.GetAllAgency();
             }
             catch (Exception ex)

@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Diagnostics;
+using System.Linq;
+using Newtonsoft.Json;
 using SlotGame._20lines.Game2.Database.DAO;
 using SlotGame._20lines.Game2.Database.DTO;
 using SlotGame._20lines.Game2.Database.Factory;
@@ -100,6 +102,12 @@ namespace SlotGame._20lines.Game2.Database.DAOImpl
         {
             try
             {
+                string s = "[thantai] SpinInfo accountID: " + accountID +
+                    "\r\nuserName: " + username +
+                    "\r\nlinesData: " + linesData +
+                    "\r\nroomid: " + roomId +
+                    "\r\nclientIp: " + clientIP +
+                    "\r\nmoneyType: " + accountID;
                 var db = new DBHelper(Config.Game2ConnectionString);
                 var pars = new SqlParameter[22];
                 pars[0] = new SqlParameter("@_AccountID", accountID);
@@ -124,18 +132,19 @@ namespace SlotGame._20lines.Game2.Database.DAOImpl
                 pars[19] = new SqlParameter("@_BonusPrizeValue", SqlDbType.BigInt) { Direction = ParameterDirection.Output };//Tiền thắng Bonus
                 pars[20] = new SqlParameter("@_SessionFreeSpins", SqlDbType.Int) { Direction = ParameterDirection.Output };//Tổng số lượt free spin đã chơi
                 pars[21] = new SqlParameter("@_PrizeValueFreeSpins", SqlDbType.Int) { Direction = ParameterDirection.Output };//Giá trị thắng freeSpin
-
-                NLogManager.LogMessage("Spin: " + (moneyType == MoneyType.Gold ? "SP_Spins_CreateTransaction" : "SP_Spins_CreateTransaction_Coin") +
-                    "\r\nroomId: " + roomId +
-                    "\r\naccountID: " + accountID + 
-                    "\r\nuserName: " + username +
-                    "\r\nlinesData: " + linesData +
-                    "\r\nclientIP: " + clientIP);
+                
+                //NLogManager.LogMessage("Spin(tamquoc): " + (moneyType == MoneyType.Gold ? "SP_Spins_CreateTransaction" : "SP_Spins_CreateTransaction_Coin") +
+                //    "\r\nroomId: " + roomId +
+                //    "\r\naccountID: " + accountID + 
+                //    "\r\nuserName: " + username +
+                //    "\r\nlinesData: " + linesData +
+                //    "\r\nclientIP: " + clientIP);
 
                 db.ExecuteNonQuerySP(
                     moneyType == MoneyType.Gold ? "SP_Spins_CreateTransaction" : "SP_Spins_CreateTransaction_Coin",
                     pars);
-
+                s += "\r\nResult spin: " + JsonConvert.SerializeObject(pars) +
+                    "\r\n" + JsonConvert.SerializeObject(pars.Select(x => x.Value).ToArray());
                 var data = new SpinData
                 {
                     AccountID = accountID,
@@ -169,6 +178,8 @@ namespace SlotGame._20lines.Game2.Database.DAOImpl
                 }
                 if (moneyType == MoneyType.Gold)
                     NLogManager.LogMessage($"SP_SlotDiamond_Spin=>Acc:{data.AccountID}|User:{username}|Room:{roomId}|SpinID:{data.SpinID}|ResponseStatus:{data.ResponseStatus}|IsJackpot:{data.IsJackpot}|TotalPrizeValue:{data.TotalPrizeValue}|linesData:{linesData}|IP:{clientIP}");
+                s += "\r\nResponse data: " + JsonConvert.SerializeObject(data);
+                NLogManager.LogMessage(s);
                 return data;
             }
             catch (Exception ex)

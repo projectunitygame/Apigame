@@ -61,6 +61,7 @@ namespace GamePortal.API.Controllers.Transaction
             catch (Exception ex)
             {
                 NLogManager.PublishException(ex);
+                NLogManager.LogError("ERROR GetPlayLog: " + ex);
             }
 
             return null;

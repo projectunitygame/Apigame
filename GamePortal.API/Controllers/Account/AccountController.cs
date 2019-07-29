@@ -181,6 +181,11 @@ namespace GamePortal.API.Controllers.Account
             };
         }
 
+        /// <summary>
+        /// login OTP ngoai lobby
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
         [HttpOptions, HttpGet, HttpPost]
         public ApiAccountReponse LoginOTP(PostLoginOTP data)
         {
@@ -201,7 +206,7 @@ namespace GamePortal.API.Controllers.Account
                 var account = AccountDAO.GetAccountById(accountId);
                 if (account.IsBlocked)
                     return new ApiAccountReponse { Code = -65 }; ;
-                //NLogManager.LogMessage("LOGIN OTP: " + accountId + "|" + data.otp);
+                NLogManager.LogMessage("LOGIN OTP: " + accountId + "|" + data.otp);
 
                 var infoApp = OtpDAO.GetCurrentCounter(accountId);
                 string token = infoApp?.AppT;
@@ -212,7 +217,10 @@ namespace GamePortal.API.Controllers.Account
                 }
 
                 if (!OTP.OTP.ValidateOTP(accountId, data.otp, account.Tel))
+                {
+                    NLogManager.LogMessage("ValidateOTP: " + -60);
                     return new ApiAccountReponse { Code = -60 };
+                }
 
                 doneOTP:
                 LogDAO.Login(device, IPAddressHelper.GetClientIP(), accountId, 1);

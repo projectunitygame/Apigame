@@ -13,6 +13,7 @@ using SlotGame._20Lines.Game1.Models;
 using Utilities.ConfigHelper;
 using Utilities.Database;
 using Utilities.Log;
+using Newtonsoft.Json;
 
 namespace SlotGame._20Lines.Game1.Database.DAOImpl
 {
@@ -104,6 +105,13 @@ namespace SlotGame._20Lines.Game1.Database.DAOImpl
         public SpinData Spin(int accountID, string username,
             string linesData, int roomId, string clientIP, MoneyType moneyType)
         {
+            string s = "Spin Kungfu Panda: " +
+                "\r\nAccountID: " + accountID +
+                "\r\nUserName: " + username +
+                "\r\nLinesData: " + linesData +
+                "\r\nRoomId: " + roomId +
+                "\r\nclientIP: " + clientIP +
+                "\r\nmoneyType: " + moneyType;
             try
             {
                 var db = new DBHelper(Config.Game1ConnectionString);
@@ -132,7 +140,8 @@ namespace SlotGame._20Lines.Game1.Database.DAOImpl
                 db.ExecuteNonQuerySP(
                     moneyType == MoneyType.Gold ? "SP_Spins_CreateTransaction" : "SP_Spins_CreateTransaction_Coin",
                     pars);
-
+                s += "\r\nResult Spin Kungfu Panda:" + JsonConvert.SerializeObject(pars) + 
+                    "\r\n" + JsonConvert.SerializeObject(pars.Select(x=>x.Value).ToArray()); 
                 var data = new SpinData
                 {
                     AccountID = accountID,
@@ -165,7 +174,9 @@ namespace SlotGame._20Lines.Game1.Database.DAOImpl
                     data.SlotsData = SpinData.SetSlots($"{pars[6].Value}");
                 }
                 if(moneyType == MoneyType.Gold)
-                    NLogManager.LogMessage( $"SP_SlotDiamond_Spin=>Acc:{data.AccountID}|User:{username}|Room:{roomId}|SpinID:{data.SpinID}|ResponseStatus:{data.ResponseStatus}|IsJackpot:{data.IsJackpot}|TotalPrizeValue:{data.TotalPrizeValue}|linesData:{linesData}|IP:{clientIP}");
+                    NLogManager.LogMessage( $"SP_SlotDiamond_Spin=>Acc:{data.AccountID}|User:{username}|Room:{roomId}|SpinID:{data.SpinID}|SlotData:{data.SlotsData}|ResponseStatus:{data.ResponseStatus}|IsJackpot:{data.IsJackpot}|TotalPrizeValue:{data.TotalPrizeValue}|linesData:{linesData}|IP:{clientIP}");
+                s += "\r\nResponse Data: " + JsonConvert.SerializeObject(data);
+                NLogManager.LogMessage(s);
                 return data;
             }
             catch (Exception ex)

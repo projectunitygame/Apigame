@@ -2,6 +2,7 @@
 using GamePortal.API.Models;
 using GamePortal.API.Models.AnotherLogic;
 using GamePortal.API.Models.SMS;
+using Newtonsoft.Json;
 using OTP;
 using System;
 using System.Collections.Generic;
@@ -173,7 +174,10 @@ namespace GamePortal.API.Controllers.Account
         {
             try
             {
+                NLogManager.LogMessage("ReceiveOTP: " + phoneNumber);
                 var account = AccountDAO.GetAccountById(AccountSession.AccountID);
+                NLogManager.LogMessage("ReceiveOTP: " + JsonConvert.SerializeObject(account));
+                //chua dang ky sdt
                 if (string.IsNullOrEmpty(account.Tel))
                 {
                     if (!PhoneDetector.IsValidPhone(phoneNumber))
@@ -202,6 +206,7 @@ namespace GamePortal.API.Controllers.Account
                     NLogManager.LogMessage("OTP: " + status);
                     if (int.Parse(status) < 0) return int.Parse(status);
                     bool deduct = TransactionDAO.DeductGold(account.AccountID, 1000, "Phí dịch vụ OTP", 2);
+                    NLogManager.LogMessage("deduct: " + deduct);
                     if (!deduct)
                         return -62;
                     //send the otp to phone
@@ -214,6 +219,7 @@ namespace GamePortal.API.Controllers.Account
             catch (Exception ex)
             {
                 NLogManager.PublishException(ex);
+                NLogManager.LogMessage("ERROR ReceiveOTP: " + ex);
             }
             return -99;
         }
@@ -229,17 +235,22 @@ namespace GamePortal.API.Controllers.Account
         {
             try
             {
-                NLogManager.LogMessage(tokenOTP);
+                NLogManager.LogMessage("ReceiveLoginOTP: " + tokenOTP);
                 if (string.IsNullOrEmpty(tokenOTP))
+                {
+                    NLogManager.LogMessage("RETURN ERROR ReceiveLoginOTP: -60");
                     return "-60";
+                }
 
                 string decryptToken = Security.TripleDESDecrypt(ConfigurationManager.AppSettings["OTPKey"], System.Web.HttpUtility.UrlDecode(tokenOTP).Replace(" ", "+"));
                 string[] splData = decryptToken.Split('|');
 
                 long time = long.Parse(splData[0]);
                 if (TimeSpan.FromTicks(DateTime.Now.Ticks - time).TotalSeconds > 120)
+                {
+                    NLogManager.LogMessage("RETURN ERROR ReceiveLoginOTP: -1");
                     return "-1"; //Experied captcha
-
+                }
                 long accountId = Convert.ToInt64(splData[1]);
                 var account = AccountDAO.GetAccountById(accountId);
 
@@ -247,14 +258,20 @@ namespace GamePortal.API.Controllers.Account
                 if (int.Parse(status) < 0) return status;
                 bool deduct = TransactionDAO.DeductGold(account.AccountID, 1000, "Phí dịch vụ OTP", 2);
                 if (!deduct)
+                {
+                    NLogManager.LogMessage("RETURN ERROR ReceiveLoginOTP: -62");
                     return "-62";
+                }
                 SmsService.SendMessage(account.Tel, $"Ma xac nhan: " + status);
+                NLogManager.LogMessage("RETURN ReceiveLoginOTP SUCCESS: 1, " + status);
                 return "1";
             }
             catch (Exception ex)
             {
                 NLogManager.PublishException(ex);
+                NLogManager.LogMessage("ERROR ReceiveLoginOTP: " + ex);
             }
+            NLogManager.LogMessage("RETURN ERROR ReceiveLoginOTP: -99");
             return "-99";
         }
 
@@ -357,6 +374,7 @@ namespace GamePortal.API.Controllers.Account
         {
             try
             {
+                NLogManager.LogMessage("ReceiveForgotPassOTP: " + username + "|" + otpType + "|" + phoneNumber);
                 if (otpType == 1)
                     if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(phoneNumber))
                         return "-99";

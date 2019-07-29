@@ -16,6 +16,7 @@ using SlotGame._25Lines.Models;
 using SlotGame._25Lines.Models.Services;
 using SlotGame._25Lines.Models.SlotMachine;
 using Utilities;
+using Utilities.Log;
 
 namespace SlotGame._25Lines.Handlers
 {
@@ -91,6 +92,12 @@ namespace SlotGame._25Lines.Handlers
 
         public SpinResult Spin(long accountId, string accountName, int roomId, MoneyType moneyType, string lineData)
         {
+            String s = "[tamquoc] Spin play: " +
+                "\r\naccountId: " + accountId +
+                "\r\naccountName: " + accountName +
+                "\r\nroomId: " + roomId +
+                "\r\nmoneyType: " + moneyType +
+                "\r\nlineData: " + lineData;
             var roomValue = GetBetValueByRoom(roomId);
             var totalBetValue = lineData.Split(',').Length * roomValue;
             var slotsData = _testService.IsTestAccount(accountName) ? _testService.GetTestData() : _slotsGeneService.GenerateSlotsData();
@@ -105,13 +112,14 @@ namespace SlotGame._25Lines.Handlers
             if (countBonus >= 3)
             {
                 bonusGame = _bonusGeneService.GenerateBonusGame(totalBetValue, countBonus - 2);
-
+                s += "\r\nWin bonus: " + JsonConvert.SerializeObject(bonusGame);
             }
 
             var addFreeSpins = 0;
             if (countScatter >= 3)
             {
                 addFreeSpins = (countScatter - 2) * 4;  // Thêm lượt FreeSpins
+                s += "\r\nWin Free spin: " + addFreeSpins;
             }
             var inputSpinData = new InputSpinData()
             {
@@ -157,7 +165,7 @@ namespace SlotGame._25Lines.Handlers
             var totalPrizeValue = payLinePrizeValue + outputSpinData.TotalJackpotValue;
             HonorHandler.Instance.SaveHonor(accountName, roomId, totalPrizeValue, inputSpinData.IsJackpot ? 1 : 2); // Luu vinh danh
 
-            return new SpinResult()
+            var d = new SpinResult()
             {
                 SpinId = outputSpinData.SpinId,
                 SlotsData = slotsData,
@@ -173,8 +181,9 @@ namespace SlotGame._25Lines.Handlers
                 Jackpot = outputSpinData.Jackpot,
                 ResponseStatus = outputSpinData.ResponseStatus
             };
-
-
+            s += "\r\nResponse: " + JsonConvert.SerializeObject(d);
+            NLogManager.LogMessage(s);
+            return d;
         }
 
         public int FinishBonusGame(MoneyType moneyType, int spinId, out int prizeValue, out long balance)

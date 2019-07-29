@@ -20,4 +20,13 @@ namespace GamePortal.API.Models
         public long Amount { get; set; }
         public int Status { get; set; }
     }
+
+    public class ResultTransferToAgency
+    {
+        public long Balance { get; set; }
+        public string TransID { get; set; }
+        public long Amount { get; set; }
+        public string RecipientID { get; set; }
+        public string DateTrans { get; set; }
+    }
 }

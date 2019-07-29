@@ -104,20 +104,23 @@ namespace GamePortal.API.DataAccess
 
         public static List<GameGoldTransaction> GetGameGoldTransaction_v1(long accountId, int records)
         {
+            NLogManager.LogMessage("GetGameGoldTransaction_v1: " + accountId + ", " + records);
             DBHelper db = new DBHelper(GateConfig.DbConfig);
-            return db.GetList<GameGoldTransaction>($"SELECT TOP({records}) * FROM log.V_GameGoldTransaction_v1 where AccountId = {accountId} ORDER BY ID DESC");
+            return db.GetList<GameGoldTransaction>($"SELECT TOP({records}) * FROM log.V_GameGoldTransaction_v1 where AccountId = {accountId} ORDER BY CreatedTime DESC");
         }
 
         public static List<TopupGold> GetTopupGold(long accountId, int records)
         {
+            NLogManager.LogMessage("GetTopupGold: " + accountId + ", " + records);
             DBHelper db = new DBHelper(GateConfig.DbConfig);
-            return db.GetList<TopupGold>($"SELECT TOP({records}) * FROM log.V_TopupGold where AccountId = {accountId} ORDER BY ID DESC");
+            return db.GetList<TopupGold>($"SELECT TOP({records}) * FROM log.V_TopupGold where AccountId = {accountId} ORDER BY CreatedTime DESC");
         }
 
         public static List<DeductGold> GetDeductGold(long accountId, int records)
         {
+            NLogManager.LogMessage("GetDeductGold: " + accountId + ", " + records);
             DBHelper db = new DBHelper(GateConfig.DbConfig);
-            return db.GetList<DeductGold>($"SELECT TOP({records}) * FROM log.V_DeductGold where AccountId = {accountId} ORDER BY ID DESC");
+            return db.GetList<DeductGold>($"SELECT TOP({records}) * FROM log.V_DeductGold where AccountId = {accountId} ORDER BY CreatedTime DESC");
         }
         #endregion
         #region send gold
@@ -137,6 +140,50 @@ namespace GamePortal.API.DataAccess
                     $"@_reason = N'{reason}'");
 
                 return Convert.ToInt64(query.response);
+            }
+        }
+
+        /// <summary>
+        /// Chuyển tiền cho đại lý - truongdien
+        /// </summary>
+        /// <param name="sendId"></param>
+        /// <param name="recvId"></param>
+        /// <param name="sendName"></param>
+        /// <param name="recvName"></param>
+        /// <param name="isAgency"></param>
+        /// <param name="amount"></param>
+        /// <param name="recvAmount"></param>
+        /// <param name="reason"></param>
+        /// <returns></returns>
+        public static ResultTransferToAgency SendGold_v1(long sendId, string recvName,
+            decimal amount, string reason, string ip,ref int code, ref string msg, ref string phone)
+        {
+            try
+            {
+                using (var db = new SqlConnection(GateConfig.DbConfig))
+                {
+                    string key = "48dc695d5f6203fd54b85c93b022ffe5";
+                    var dbHelper = new DBHelper(GateConfig.DbConfig);
+                    List<SqlParameter> pars = new List<SqlParameter>();
+                    pars.Add(new SqlParameter("@SenderID", sendId));
+                    pars.Add(new SqlParameter("@RecipientName", recvName));
+                    pars.Add(new SqlParameter("@Reason", reason));
+                    pars.Add(new SqlParameter("@Amount", amount));
+                    pars.Add(new SqlParameter("@IP", ip));
+                    pars.Add(new SqlParameter("@Key", key));
+                    pars.Add(new SqlParameter("@Code", System.Data.SqlDbType.Int) { Direction = System.Data.ParameterDirection.Output });
+                    pars.Add(new SqlParameter("@Msg", System.Data.SqlDbType.NVarChar, 500) { Direction = System.Data.ParameterDirection.Output });
+                    pars.Add(new SqlParameter("@PhoneAgency", System.Data.SqlDbType.VarChar, 10) { Direction = System.Data.ParameterDirection.Output });
+                    var response = dbHelper.GetInstanceSP<ResultTransferToAgency>("[dbo].[API_TransferMoneyUserToAgency]", pars.ToArray());
+                    code = Convert.ToInt32(pars[6].Value);
+                    msg = pars[7].Value.ToString();
+                    phone = pars[8].Value.ToString();
+                    return response;
+                }
+            }
+            catch (Exception e)
+            {
+                throw new Exception(e.Message);
             }
         }
 
@@ -179,18 +226,28 @@ namespace GamePortal.API.DataAccess
 
         public static bool DeductGold(long accountId, long amount, string description, int type)
         {
-            using (var db = new SqlConnection(GateConfig.DbConfig))
+            try
             {
-                var query = db.QueryFirstOrDefault($"declare @_ResponseStatus int;exec [dbo].[SP_DeductGold_OTP] @_AccountId = {accountId}, " +
-                    $"@_ServiceId = 0, " +                    
-                    $"@_Amount = {amount}, " +
-                    $"@_Description = '{description}', " +
-                    $"@_Type = {type}, " +
-                    $"@_ResponseStatus = @_ResponseStatus OUTPUT;" +
-                    $"select @_ResponseStatus ResponseStatus");
+                NLogManager.LogMessage("DeductGold: " + accountId + ", description=" + description + ", type=" + type);
+                using (var db = new SqlConnection(GateConfig.DbConfig))
+                {
+                    var query = db.QueryFirstOrDefault($"declare @_ResponseStatus int;exec [dbo].[SP_DeductGold_OTP] @_AccountId = {accountId}, " +
+                        $"@_ServiceId = 0, " +
+                        $"@_Amount = {amount}, " +
+                        $"@_Description = '{description}', " +
+                        $"@_Type = {type}, " +
+                        $"@_ResponseStatus = @_ResponseStatus OUTPUT;" +
+                        $"select @_ResponseStatus ResponseStatus");
 
-                return Convert.ToInt64(query.ResponseStatus) > 0;
+                    return Convert.ToInt64(query.ResponseStatus) > 0;
+                }
             }
+            catch (Exception ex)
+            {
+                NLogManager.LogError("ERROR DeductGold: " + ex);
+                throw new Exception(ex.Message);
+            }
+            
         }
 
         public static IEnumerable<CardConfig> GetCardConfigs()

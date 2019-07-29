@@ -84,7 +84,7 @@ namespace OTP
                     valid = GetTimeOTP(ct.AppT + "_" + phonenumber, ct.C - 1 + GetCurrentCounter()) == otp;
                 }
             }
-
+            NLogManager.LogMessage("ValidateOTP: " + valid);
             return valid;
         }
 

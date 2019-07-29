@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Utilities.HttpHelper;
@@ -16,13 +18,15 @@ namespace GamePortal.API.Models.SMS
     {
         public static void SendMessage(string phone, string message)
         {
-            string msgSent = HttpUtility.UrlEncode(message);
+            string msgSent = RemoveSign4VietnameseString(message);//HttpUtility.UrlEncode(message);
             string ApiKey = "3F11E064600D5C3E073FA1B033831B";
             string SecretKey = "C8F2CCDA4C9B32CAC4E3EFDD1C08B8";
+            string brandName = "Svoucher";
             //string SmsType = "4";
             string SmsType = "2";
             //string url = $"http://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_get?Phone={phone}&Content={msgSent}&ApiKey={ApiKey}&SecretKey={SecretKey}&SmsType={SmsType}&brandname=Verify";
-            string url = "http://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_get?Phone="+phone+"&Content="+msgSent+"&ApiKey="+ApiKey+"&SecretKey="+SecretKey+"&SmsType="+SmsType+"&brandname=Verify";
+            //string url = "http://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_get?Phone="+phone+"&Content="+msgSent+"&ApiKey="+ApiKey+"&SecretKey="+SecretKey+"&SmsType="+SmsType+"&brandname=Verify";
+            string url = "http://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_get?Phone=" + phone + "&Content=" + msgSent + "&ApiKey=" + ApiKey + "&SecretKey=" + SecretKey + "&SmsType=" + SmsType + "&brandname=" + brandName;
             NLogManager.LogMessage("SendMessage: " + url);
             string result = WebRequest(Method.GET, url);
             NLogManager.LogMessage("SendMessage result: " + result);
@@ -96,6 +100,44 @@ namespace GamePortal.API.Models.SMS
             }
 
             return responseData;
+        }
+
+        private static readonly string[] VietnameseSigns = new string[]
+        {
+          "aAeEoOuUiIdDyY",
+          "áàạảãâấầậẩẫăắằặẳẵ",
+          "ÁÀẠẢÃÂẤẦẬẨẪĂẮẰẶẲẴ",
+          "éèẹẻẽêếềệểễ",
+          "ÉÈẸẺẼÊẾỀỆỂỄ",
+          "óòọỏõôốồộổỗơớờợởỡ",
+          "ÓÒỌỎÕÔỐỒỘỔỖƠỚỜỢỞỠ",
+          "úùụủũưứừựửữ",
+          "ÚÙỤỦŨƯỨỪỰỬỮ",
+          "íìịỉĩ",
+          "ÍÌỊỈĨ",
+          "đ",
+          "Đ",
+          "ýỳỵỷỹ",
+          "ÝỲỴỶỸ"
+         };
+
+        public static string RemoveSign4VietnameseString(string s)
+        {
+            string str = convertToUnSign3(s);
+            //Tiến hành thay thế , lọc bỏ dấu cho chuỗi
+            for (int i = 1; i < VietnameseSigns.Length; i++)
+            {
+                for (int j = 0; j < VietnameseSigns[i].Length; j++)
+                    str = str.Replace(VietnameseSigns[i][j], VietnameseSigns[0][i - 1]);
+            }
+            return str;
+        }
+
+        public static string convertToUnSign3(string s)
+        {
+            Regex regex = new Regex("\\p{IsCombiningDiacriticalMarks}+");
+            string temp = s.Normalize(NormalizationForm.FormD);
+            return regex.Replace(temp, String.Empty).Replace('\u0111', 'd').Replace('\u0110', 'D');
         }
     }
 

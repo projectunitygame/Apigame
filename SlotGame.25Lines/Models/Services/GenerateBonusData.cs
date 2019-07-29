@@ -90,11 +90,20 @@ namespace SlotGame._25Lines.Models.Services
 
             bonusData = bonusData.Substring(0, bonusData.Length - 1);
 
-            var multi = RandomUtil.NextInt(startBonus, startBonus + 3); // he so nhan tong
+            //var multi = RandomUtil.NextInt(startBonus, startBonus + 3); // he so nhan tong
+            var multi = GetRandomNumber(startBonus, startBonus + 2); // he so nhan tong
 
             return new BonusGame(){BonusData = bonusData, TotalPrizeValue = (int)totalPrizeValue * multi, Mutiplier = multi, DataMultiplier = totalMultiplier};
         }
 
-        
+        private static readonly object syncLock = new object();
+        private static readonly Random getrandom = new Random();
+        public static int GetRandomNumber(int min, int max)
+        {
+            lock (syncLock)
+            {
+                return getrandom.Next(min, max);
+            }
+        }
     }
 }
