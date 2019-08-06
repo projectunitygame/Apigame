@@ -15,7 +15,7 @@ namespace GamePortal.API
     {
         protected void Page_Load(object sender, EventArgs e)
         {
-
+            //Response.Write("UWIN.00000020".Substring(0, 5));
         }
 
         protected void Button1_Click(object sender, EventArgs e)

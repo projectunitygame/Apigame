@@ -193,6 +193,7 @@
     <Compile Include="Models\Mail.cs" />
     <Compile Include="Models\PlayLog.cs" />
     <Compile Include="Models\SMS\SmsService.cs" />
+    <Compile Include="Models\TokenAuthen.cs" />
     <Compile Include="Models\TopupGold.cs" />
     <Compile Include="Models\TopupHistory.cs" />
     <Compile Include="Models\TopupLog.cs" />

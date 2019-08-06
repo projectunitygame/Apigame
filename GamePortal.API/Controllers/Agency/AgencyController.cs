@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Linq;
 using System.Web.Http;
 using Utilities.Log;
 using Utilities.Session;
@@ -17,11 +18,11 @@ namespace GamePortal.API.Controllers.Agency
             {
                 if(!string.IsNullOrEmpty(ConfigurationManager.AppSettings["CloseAgencies"]))
                     return new List<Models.Agency>();
-                var accountSandbox = ConfigurationManager.AppSettings["AccountSandbox"];
+                var accountSandbox = ConfigurationManager.AppSettings["AccountSandbox"].Split(',').ToList();
                 var accountId = AccountSession.AccountID;
-                if (!string.IsNullOrEmpty(accountSandbox))
+                if (accountSandbox.Count() > 0)
                 {
-                    if (accountSandbox.Contains(accountId.ToString()))
+                    if (accountSandbox.Count(x => x == accountId.ToString()) > 0)
                     {
                         return AgencyDAO.GetAllAgency_v1();
                     }

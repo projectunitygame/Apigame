@@ -166,7 +166,7 @@ namespace GamePortal.API.DataAccess
                     var dbHelper = new DBHelper(GateConfig.DbConfig);
                     List<SqlParameter> pars = new List<SqlParameter>();
                     pars.Add(new SqlParameter("@SenderID", sendId));
-                    pars.Add(new SqlParameter("@RecipientName", recvName));
+                    pars.Add(new SqlParameter("@UwinID", recvName));
                     pars.Add(new SqlParameter("@Reason", reason));
                     pars.Add(new SqlParameter("@Amount", amount));
                     pars.Add(new SqlParameter("@IP", ip));

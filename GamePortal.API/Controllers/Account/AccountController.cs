@@ -19,11 +19,49 @@ using Utilities.IP;
 using Utilities.Log;
 using Utilities.Session;
 using System.Linq;
+using GamePortal.API.Models;
 
 namespace GamePortal.API.Controllers.Account
 {
     public class AccountController : ApiController
     {
+        /// <summary>
+        /// Lay token authen
+        /// </summary>
+        /// <returns></returns>
+        [HttpOptions, HttpGet]
+        public string GetTokenAuthen()
+        {
+            if (AccountSession.AccountID <= 0)
+                return string.Empty;
+            TokenAuthen t = new TokenAuthen();
+            var accountInfo = AccountDAO.GetAccountInfo(AccountSession.AccountID);
+            string token = t.GetTokenAuthen(accountInfo);
+            NLogManager.LogMessage("GetTokenAuthen: " + JsonConvert.SerializeObject(accountInfo) +
+                "\r\nTokenAuthen: " + token);
+            return token;
+        }
+
+        /// <summary>
+        /// lay thong tin user bang tokenAuthen
+        /// </summary>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        [HttpOptions, HttpGet]
+        public GamePortal.API.Models.UserInfo AccessTokenAuthen(string token)
+        {
+            TokenAuthen t = new TokenAuthen();
+            var d = t.AccessToken(token);
+            UserInfo accountInfo = new UserInfo()
+            {
+                userid = d.AccountID.ToString(),
+                username = d.DisplayName
+            };
+            NLogManager.LogMessage("AccessTokenAuthen: " + token + "\r\n" + JsonConvert.SerializeObject(accountInfo));
+            return accountInfo;
+        }
+
+
         [HttpOptions, HttpGet]
         public bool SetExampleCookie()
         {

@@ -10,8 +10,14 @@ using Utilities.Encryption;
 
 namespace GamePortal.API.Models
 {
+    public class UserInfo
+    {
+        public string userid { get; set; }
+        public string username { get; set; }
+    }
     public class Account
     {
+        public string tokenAuthen { get; set; }//update 06-08-2019 - TD
         public long AccountID { get; set; }
         public string Username { get; set; }
         public string DisplayName { get; set; }
