@@ -5,6 +5,7 @@ using System.Runtime.Caching;
 using System.Security.Cryptography;
 using System.Text;
 using System.Web;
+using Utilities.Log;
 
 namespace GamePortal.API.Models
 {
@@ -13,33 +14,76 @@ namespace GamePortal.API.Models
     /// </summary>
     public class TokenAuthen
     {
-        private static int timeout_cache = 1800;
+        private static int timeout_cache = 18000;
+
+        public string GetTokenAuthenTest()
+        {
+            string tokenAuthen = GetMd5Hash(Guid.NewGuid().ToString());
+            Account acc = new Account()
+            {
+                AccountID = 999999,
+                DisplayName = "Test account",
+                tokenAuthen = tokenAuthen
+            };
+
+            CacheHandler.Add(tokenAuthen, acc, timeout_cache);
+            return tokenAuthen;
+        }
+
         public string GetTokenAuthen(Models.Account accountInfo)
         {
-            if(accountInfo != null)
+            try
             {
-                var data = (Models.Account)CacheHandler.Get(accountInfo);
-                if (data != null)
+                if (accountInfo != null)
                 {
-                    CacheHandler.Remove(data.tokenAuthen);
-                    data.tokenAuthen = string.Empty;
+                    string token = GetMd5Hash(Guid.NewGuid().ToString());
+                    if (string.IsNullOrEmpty(accountInfo.tokenAuthen))
+                    {
+                        accountInfo.tokenAuthen = token;
+                        CacheHandler.Add(token, accountInfo, timeout_cache);
+                    }
+                    else
+                    {
+                        var data = (Models.Account)CacheHandler.Get(accountInfo.tokenAuthen);
+                        if (data != null)
+                        {
+                            CacheHandler.Remove(data.tokenAuthen);
+                            accountInfo.tokenAuthen = token;
+                            CacheHandler.Add(token, accountInfo, timeout_cache);
+                        }
+                        else
+                        {
+                            accountInfo.tokenAuthen = token;
+                            CacheHandler.Add(token, accountInfo, timeout_cache);
+                        }
+                    }
+                    return token;
                 }
-                data.tokenAuthen = GetMd5Hash(Guid.NewGuid().ToString());
-                CacheHandler.Add(data.tokenAuthen, data, timeout_cache);
-                return data.tokenAuthen;
+            }
+            catch (Exception ex)
+            {
+                NLogManager.LogError("ERROR GetTokenAuthen: " + ex);
             }
             return string.Empty;
         }
 
         public Models.Account AccessToken(string key)
         {
-            var d = (Models.Account)CacheHandler.Get(key);
-            if (d != null)
+            try
             {
-                CacheHandler.Remove(d.tokenAuthen);
-                d.tokenAuthen = string.Empty;
+                var d = (Models.Account)CacheHandler.Get(key);
+                if (d != null)
+                {
+                    CacheHandler.Remove(d.tokenAuthen);
+                    d.tokenAuthen = string.Empty;
+                }
+                return d;
             }
-            return d;
+            catch (Exception ex)
+            {
+                NLogManager.LogError("ERROR AccessToken: " + ex);
+                return null;
+            }
         }
 
         public string GetMd5Hash(string input)
@@ -83,11 +127,6 @@ namespace GamePortal.API.Models
         public static object Get(string key)
         {
             return cache[key];
-        }
-
-        public static object Get(object value)
-        {
-            return cache.Where(x=>x.Value == value);
         }
 
         public static void Remove(string key)

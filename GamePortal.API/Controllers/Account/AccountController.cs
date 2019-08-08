@@ -25,6 +25,15 @@ namespace GamePortal.API.Controllers.Account
 {
     public class AccountController : ApiController
     {
+        [HttpOptions, HttpGet]
+        public string GetTokenAuthenTest()
+        {
+            TokenAuthen t = new TokenAuthen();
+            string token = t.GetTokenAuthenTest();
+            NLogManager.LogMessage("GetTokenAuthen test: " + token);
+            return token;
+        }
+
         /// <summary>
         /// Lay token authen
         /// </summary>
@@ -33,7 +42,10 @@ namespace GamePortal.API.Controllers.Account
         public string GetTokenAuthen()
         {
             if (AccountSession.AccountID <= 0)
+            {
+                NLogManager.LogMessage("GetTokenAuthen Account NULL!");
                 return string.Empty;
+            }
             TokenAuthen t = new TokenAuthen();
             var accountInfo = AccountDAO.GetAccountInfo(AccountSession.AccountID);
             string token = t.GetTokenAuthen(accountInfo);
@@ -48,17 +60,22 @@ namespace GamePortal.API.Controllers.Account
         /// <param name="token"></param>
         /// <returns></returns>
         [HttpOptions, HttpGet]
-        public GamePortal.API.Models.UserInfo AccessTokenAuthen(string token)
+        public UserInfo AccessTokenAuthen(string token)
         {
             TokenAuthen t = new TokenAuthen();
             var d = t.AccessToken(token);
-            UserInfo accountInfo = new UserInfo()
+            if (d != null)
             {
-                userid = d.AccountID.ToString(),
-                username = d.DisplayName
-            };
-            NLogManager.LogMessage("AccessTokenAuthen: " + token + "\r\n" + JsonConvert.SerializeObject(accountInfo));
-            return accountInfo;
+                UserInfo accountInfo = new UserInfo()
+                {
+                    userid = d.AccountID.ToString(),
+                    username = d.DisplayName
+                };
+                NLogManager.LogMessage("AccessTokenAuthen: " + token + "\r\n" + JsonConvert.SerializeObject(accountInfo));
+                return accountInfo;
+            }
+            else
+                return null;
         }
 
 
@@ -206,6 +223,7 @@ namespace GamePortal.API.Controllers.Account
 
                 LogDAO.Login(data.device, IPAddressHelper.GetClientIP(), account.AccountID, 1);
                 SetAuthCookie(account.AccountID, account.DisplayName, data.device, account.UserType);
+                //NLogManager.LogMessage("Login success: " + JsonConvert.SerializeObject(account));
                 return new ApiAccountReponse { Code = 1, Account = account };
             }
             catch (Exception ex)
