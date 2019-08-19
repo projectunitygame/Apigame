@@ -35,6 +35,32 @@ namespace GamePortal.API.Controllers.Account
         }
 
         /// <summary>
+        /// Chuyen tien tu Uwin sang game khac
+        /// </summary>
+        /// <param name="p"></param>
+        /// <returns></returns>
+        [HttpOptions, HttpGet, HttpPost]
+        public string TransferMoney(PostTransferMoneyGame p)
+        {
+            if (AccountSession.AccountID <= 0)
+            {
+                NLogManager.LogMessage("TransferMoney Account NULL!");
+                return string.Empty;
+            }
+            var accountInfo = AccountDAO.GetAccountInfo(AccountSession.AccountID);
+            NLogManager.LogMessage("TransferMoney: " + JsonConvert.SerializeObject(p) + 
+                "\r\nAccount: " + JsonConvert.SerializeObject(accountInfo));
+            string msg = "";
+            string receiptID = "";
+            long r = AccountDAO.TransferSubMoneyGames(accountInfo.AccountID, "", p.amount, Utilities.IP.IPAddressHelper.GetClientIP(), p.gameId, ref msg, ref receiptID);
+            return JsonConvert.SerializeObject(new
+            {
+                Status = r,
+                Msg = msg
+            });
+        }
+
+        /// <summary>
         /// Lay token authen
         /// </summary>
         /// <returns></returns>
@@ -232,6 +258,116 @@ namespace GamePortal.API.Controllers.Account
             }
 
             return new ApiAccountReponse
+            {
+                Code = -99
+            };
+        }
+
+        /// <summary>
+        /// Login fb game khác
+        /// code = 1 success
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        [HttpOptions, HttpGet, HttpPost]
+        public async Task<ApiAccountInfoReponse> AuthenLoginFacebook(PostLoginFacebook data)
+        {
+            try
+            {
+                var fb = await Utilities.FB.Facebook.GetIDsForBusiness(data.accessToken);
+                if (fb == null)
+                    return new ApiAccountInfoReponse { Code = -50 };
+                string accountIds = fb.Select(x => x.id).Aggregate((i, j) => i + ";" + j);
+                long accountId = AccountDAO.CheckBussinessAccount(accountIds);//request the minium user_id
+                var account = new Models.Account();
+                if (accountId > 0)
+                    account = AccountDAO.GetAccountInfo(accountId);
+                if (account == null || account.AccountID == 0)
+                    account = new Models.Account();
+                else
+                {
+                    if (account.IsBlocked)
+                        return new ApiAccountInfoReponse { Code = -65 };
+                    //if (account.IsOTP)
+                    //{
+                    //    string token = $"{DateTime.Now.Ticks}|{account.AccountID}|{account.DisplayName}|{data.device}";
+                    //    return new ApiAccountReponse
+                    //    {
+                    //        Code = 2,
+                    //        Account = account,
+                    //        OTPToken = Security.TripleDESEncrypt(ConfigurationManager.AppSettings["OTPKey"], token)
+                    //    };
+                    //}
+                    LogDAO.Login(data.device, IPAddressHelper.GetClientIP(), account.AccountID, 2);
+                    SetAuthCookie(account.AccountID, account.DisplayName, data.device, 2);
+                    return new ApiAccountInfoReponse { Code = 1, Account = account };
+                }
+                int response = account.RegisterFacebookAccount($"FB_{fb.FirstOrDefault().id}");
+                if (response < 0) return new ApiAccountInfoReponse { Code = response };
+                AccountDAO.CheckBussinessAccount(accountIds);
+                LogDAO.Login(data.device, IPAddressHelper.GetClientIP(), account.AccountID, 2, true);
+                SetAuthCookie(account.AccountID, "U." + account.AccountID, data.device, 2);
+                var accuntInfo = new
+                {
+                    userid = account.AccountID,
+                    username = account.DisplayName
+                };
+                return new ApiAccountInfoReponse { Code = response, Account = accuntInfo };
+            }
+            catch (Exception ex)
+            {
+                NLogManager.PublishException(ex);
+            }
+
+            return new ApiAccountInfoReponse
+            {
+                Code = -99
+            };
+        }
+
+        /// <summary>
+        /// Login game khác
+        /// code = 1 success
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        [HttpOptions, HttpGet, HttpPost]
+        public ApiAccountInfoReponse AuthenLogin(PostLogin data)
+        {
+            try
+            {
+                var account = AccountDAO.Login(data.username, Security.MD5Encrypt(data.password));
+                if (account == null || account.AccountID == 0)
+                    return new ApiAccountInfoReponse { Code = -51 };
+                if (account.IsBlocked)
+                    return new ApiAccountInfoReponse { Code = -65 };
+                //if (account.IsOTP)
+                //{
+                //    string token = $"{DateTime.Now.Ticks}|{account.AccountID}|{account.DisplayName}|{data.device}";
+                //    return new ApiAccountReponse
+                //    {
+                //        Code = 2,
+                //        Account = account,
+                //        OTPToken = Security.TripleDESEncrypt(ConfigurationManager.AppSettings["OTPKey"], token)
+                //    };
+                //}
+
+                LogDAO.Login(data.device, IPAddressHelper.GetClientIP(), account.AccountID, 1);
+                SetAuthCookie(account.AccountID, account.DisplayName, data.device, account.UserType);
+                //NLogManager.LogMessage("Login success: " + JsonConvert.SerializeObject(account));
+                var accountInfo = new
+                {
+                    userid = account.AccountID,
+                    username = account.DisplayName
+                };
+                return new ApiAccountInfoReponse { Code = 1, Account = accountInfo };
+            }
+            catch (Exception ex)
+            {
+                NLogManager.PublishException(ex);
+            }
+
+            return new ApiAccountInfoReponse
             {
                 Code = -99
             };
@@ -600,11 +736,25 @@ namespace GamePortal.API.Controllers.Account
 #endif
     }
 
+    public class PostTransferMoneyGame
+    {
+        public string accountId { get; set; }
+        public string reason { get; set; }
+        public int gameId { get; set; }
+        public long amount { get; set; }
+    }
+
     public class ApiAccountReponse
     {
         public int Code { get; set; }
         public GamePortal.API.Models.Account Account { get; set; }
         public string OTPToken { get; set; }
+    }
+
+    public class ApiAccountInfoReponse
+    {
+        public int Code { get; set; }
+        public object Account { get; set; }
     }
 
     public class PostCreateAccount

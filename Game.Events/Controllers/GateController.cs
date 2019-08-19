@@ -11,11 +11,23 @@ using Utilities;
 using Utilities.Cache;
 using Game.Events.Models;
 using System.Web;
+using Game.Events.Database.DAOImpl;
 
 namespace Game.Events.Controllers
 {
     public class GateController : ApiController
     {
+        public List<Notification> GetNotification()
+        {
+            List<Notification> cached = (List<Notification>)CacheHandler.Get("Notification");
+            if (cached != null)
+            {
+                return cached;
+            }
+            cached = AbstractDAOFactory.Instance().CreateGateDAO().GetNotification("");
+            CacheHandler.Add("Notification", cached, 180);
+            return cached;
+        }
 
         public List<BigWinPlayers> GetBigWinPlayers()
         {
@@ -24,6 +36,7 @@ namespace Game.Events.Controllers
             {
                 return cached;
             }
+            //var test = AbstractDAOFactory.Instance().CreateGateDAO().GetNotification("");
             cached = AbstractDAOFactory.Instance().CreateGateDAO().GeBigWinPlayersByID(0, 15);
             List<BigWinPlayers> list2 = AbstractDAOFactory.Instance().CreateGateDAO().GeBigWinPlayersByID(5, 3);
             cached.AddRange(list2);

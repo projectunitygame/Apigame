@@ -8,6 +8,7 @@ namespace Game.Events.Database.DAO
     public interface IGate
     {
         List<BigWinPlayers> GetBigWinPlayers();
+        List<DAOImpl.Notification> GetNotification(string ip = "");
         List<BigWinPlayers> GeBigWinPlayersByID(int gameId, int topCount);
     }
 }

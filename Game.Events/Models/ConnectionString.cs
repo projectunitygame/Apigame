@@ -9,6 +9,7 @@ namespace Game.Events.Models
 {
     public static class ConnectionString
     {
+        private static string _gamePortalConnectionString = ConfigurationManager.ConnectionStrings["GamePortal"].ToString();
         private static string _slotMachineReportConnectionString = ConfigurationManager.ConnectionStrings["SlotMachineReportConnectionString"].ToString();
         private static string _Game1ConnectionString = ConfigurationManager.ConnectionStrings["Game1ConnectionString"].ToString();
         private static string _Game2ConnectionString = ConfigurationManager.ConnectionStrings["Game2ConnectionString"].ToString();
@@ -16,6 +17,9 @@ namespace Game.Events.Models
         private static string _MiniSlot1ConnectionString = ConfigurationManager.ConnectionStrings["MiniSlot1ConnectionString"].ToString();
         private static string _MiniSlot2ConnectionString = ConfigurationManager.ConnectionStrings["MiniSlot2ConnectionString"].ToString();
         private static string _MiniPokerConnectionString = ConfigurationManager.ConnectionStrings["MiniPokerConnectionString"].ToString();
+
+        public static string GamePortalConnectionString => ConnectionStringUtil.Decrypt(_gamePortalConnectionString);
+
         public static string SlotMachineReportConnectionString => ConnectionStringUtil.Decrypt(_slotMachineReportConnectionString);
 
         public static string TamQuocConnectionString => ConnectionStringUtil.Decrypt(_Game1ConnectionString);

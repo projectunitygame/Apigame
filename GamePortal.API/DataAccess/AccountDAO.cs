@@ -12,6 +12,113 @@ namespace GamePortal.API.DataAccess
 {
     public class AccountDAO
     {
+        /// <summary>
+        /// Chuyển tien từ Uwin qua game khác
+        /// </summary>
+        /// <param name="accountID"></param>
+        /// <param name="reason"></param>
+        /// <param name="amount"></param>
+        /// <param name="ip"></param>
+        /// <param name="gameID"></param>
+        /// <param name="msg"></param>
+        /// <param name="receiptID"></param>
+        /// <returns></returns>
+        public static int TransferSubMoneyGames(long accountID, string reason, long amount, string ip, int gameID, ref string msg, ref string receiptID)
+        {
+            int code = -1;
+            string s = "TransferSubMoneyGames" +
+                    "\r\nAccountId: " + accountID +
+                    "\r\nReason: " + reason +
+                    "\r\nAmount: " + amount +
+                    "\r\nIp: " + ip +
+                    "\r\nGameID: " + gameID;
+            try
+            {
+                DBHelper db = new DBHelper(GateConfig.DbConfig);
+                List<SqlParameter> pars = new List<SqlParameter>
+            {
+                new SqlParameter("@AccountId", accountID),
+                new SqlParameter("@Reason", reason),
+                new SqlParameter("@Amount", amount),
+                new SqlParameter("@Ip", ip),
+                new SqlParameter("@GameID", gameID),
+                new SqlParameter("@Code", System.Data.SqlDbType.Int) { Direction = System.Data.ParameterDirection.Output },
+                new SqlParameter("@Msg", System.Data.SqlDbType.NVarChar, 500) { Direction = System.Data.ParameterDirection.Output },
+                new SqlParameter("@ReceiptID", System.Data.SqlDbType.VarChar, 30) { Direction = System.Data.ParameterDirection.Output }
+            };
+                db.ExecuteNonQuerySP("API_Transfer_SubMoney_Games", pars.ToArray());
+                s += "\r\nCode: " + pars[5].Value;
+                s += "\r\nMsg: " + pars[6].Value;
+                s += "\r\nReceiptID: " + pars[7].Value;
+                code = Convert.ToInt32(pars[2].Value);
+            }
+            catch (Exception ex)
+            {
+                s += "\r\nERROR: " + ex;
+                code = -99;
+            }
+            finally
+            {
+                NLogManager.LogMessage(s);
+            }
+            return code;
+        }
+
+        /// <summary>
+        /// Chuyển tiền từ game khác sang Uwin
+        /// </summary>
+        /// <param name="transactionID"></param>
+        /// <param name="accountID"></param>
+        /// <param name="reason"></param>
+        /// <param name="amount"></param>
+        /// <param name="ip"></param>
+        /// <param name="gameID"></param>
+        /// <param name="msg"></param>
+        /// <param name="receiptID"></param>
+        /// <returns></returns>
+        public static long TransferAddMoneyGames(string transactionID, int accountID, string reason, long amount, string ip, int gameID, ref string msg, ref string receiptID)
+        {
+            int code = -1;
+            string s = "TransferAddMoneyGames" +
+                    "\r\ntransactionID: " + transactionID +
+                    "\r\nAccountId: " + accountID +
+                    "\r\nReason: " + reason +
+                    "\r\nAmount: " + amount +
+                    "\r\nIp: " + ip +
+                    "\r\nGameID: " + gameID;
+            try
+            {
+                DBHelper db = new DBHelper(GateConfig.DbConfig);
+                List<SqlParameter> pars = new List<SqlParameter>
+            {
+                new SqlParameter("@TransactionID", transactionID),
+                new SqlParameter("@AccountId", accountID),
+                new SqlParameter("@Reason", reason),
+                new SqlParameter("@Amount", amount),
+                new SqlParameter("@Ip", ip),
+                new SqlParameter("@GameID", gameID),
+                new SqlParameter("@Code", System.Data.SqlDbType.Int) { Direction = System.Data.ParameterDirection.Output },
+                new SqlParameter("@Msg", System.Data.SqlDbType.NVarChar, 500) { Direction = System.Data.ParameterDirection.Output },
+                new SqlParameter("@ReceiptID", System.Data.SqlDbType.VarChar, 30) { Direction = System.Data.ParameterDirection.Output }
+            };
+                db.ExecuteNonQuerySP("API_Transfer_AddMoney_Games", pars.ToArray());
+                s += "\r\nCode: " + pars[5].Value;
+                s += "\r\nMsg: " + pars[6].Value;
+                s += "\r\nReceiptID: " + pars[7].Value;
+                code = Convert.ToInt32(pars[2].Value);
+            }
+            catch (Exception ex)
+            {
+                s += "\r\nERROR: " + ex;
+                code = -99;
+            }
+            finally
+            {
+                NLogManager.LogMessage(s);
+            }
+            return code;
+        }
+
         public static long CreateNormalAccount(string username, string password, int avatarId)
         {
             DBHelper db = new DBHelper(GateConfig.DbConfig);
