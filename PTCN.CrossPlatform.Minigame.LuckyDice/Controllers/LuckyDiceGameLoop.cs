@@ -16,6 +16,7 @@ using System.Text;
 using System.Xml.Serialization;
 using PTCN.CrossPlatform.Minigame.LuckyDice.Handlers;
 using PTCN.CrossPlatform.Minigame.LuckyDice.Models.EventBetKing;
+using PTCN.CrossPlatform.Minigame.LuckyDice.Models.Chat;
 
 namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
 {
@@ -95,6 +96,23 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
             }
         }
 
+        public long TotalUserBetTai
+        {
+            get
+            {
+                return BetTaiUser.Sum(x => x.Value);
+            }
+        }
+
+        public long TotalUserBetXiu
+        {
+            get
+            {
+                return BetXiuUser.Sum(x => x.Value);
+            }
+        }
+        public bool IsTaiWin;
+        public bool AdminControlResult;
         private bool _isBetKingEvent = false;
 
         public DiceResult Result = new DiceResult();
@@ -102,15 +120,19 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
         private ConcurrentDictionary<long, BetKingState> _eventBetKing = new ConcurrentDictionary<long, BetKingState>();
         private ConcurrentDictionary<long, long> BetTai = new ConcurrentDictionary<long, long>();
         private ConcurrentDictionary<long, long> BetXiu = new ConcurrentDictionary<long, long>();
+
+        private ConcurrentDictionary<long, long> BetTaiUser = new ConcurrentDictionary<long, long>();
+        private ConcurrentDictionary<long, long> BetXiuUser = new ConcurrentDictionary<long, long>();
         private ConcurrentDictionary<long, long> LogSumary = new ConcurrentDictionary<long, long>();
 
         private ConcurrentStack<BetInfo> _betInfo = new ConcurrentStack<BetInfo>();
-        private  ConcurrentStack<BetInfo> _overBets = new ConcurrentStack<BetInfo>();
+        private ConcurrentStack<BetInfo> _overBets = new ConcurrentStack<BetInfo>();
         private ConcurrentStack<BetInfo> _underBets = new ConcurrentStack<BetInfo>();
 
 
         private Timer _sessionTimer;
         private Timer _elapsedTimer;
+        private Timer _botChatTimer;
 
         public int MoneyType { get; private set; }
 
@@ -125,7 +147,8 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
             {
                 _botManager.Start();
             }
-            
+            Lddb.Instance.InitBotChatUsername();
+            Lddb.Instance.InitBotChatMessage();
             MoneyType = moneyType;
             _cache = cache;
             _connection = connection;
@@ -149,12 +172,51 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
                     //Clients.Clients.Clients(_connection.GetAll()).SessionInfo(MoneyType, this);
                 }
             }), null, -1, -1);
+            _botChatTimer = new Timer(new TimerCallback(ProcessBotChat), null, 3000, -1);
         }
 
+        public int GetResultAdminControl()
+        {
+            if (AdminControlResult == false) return -1;
+            return IsTaiWin == true ? 1 : 0;
+        }
+        public string GetDice()
+        {
+            return Result.Dice1 + "," + Result.Dice2 + "," + Result.Dice3;
+        }
+        public long GetFundBot()
+        {
+            return _botManager.Fund;
+        }
+        public bool CheckStateMatch()
+        {
+            var sumDice = Result.Dice1 + Result.Dice2 + Result.Dice3;
+            return sumDice > 10;
+        }
+
+        private void ProcessBotChat(object obj)
+        {
+            Random rand = new Random();
+            if (Lddb.Instance._userNameChatReal.Count <= 3)
+            {
+
+                int indexUser = rand.Next(Lddb.Instance._userNameBotChat.Count);
+                int indexMessage = rand.Next(Lddb.Instance._messageBotChat.Count);
+                string accountName = Lddb.Instance._userNameBotChat[indexUser].Username;
+                string message = Lddb.Instance._messageBotChat[indexMessage].Content;
+                ChatMessage chatMessage = GameManager._cacheGold.BotChat(message, accountName);
+                Clients.Clients.All.Msg(chatMessage);
+
+            }
+            Lddb.Instance._userNameChatReal = new Dictionary<long, string>();
+            int timeDelay = rand.Next(3, 12) * 1000;
+            _botChatTimer.Change(timeDelay, -1);
+        }
         private void StartBettingPhrase()
         {
             RefreshSession();
             CurrentState = GameState.Betting;
+            PrepareResult();
         }
         private void StartEndBettingPhrase()
         {
@@ -167,146 +229,185 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
                 NLogManager.PublishException(ex);
             }
         }
+
+        private bool isHaveResult;
+        private void PrepareResult()
+        {
+            if (isHaveResult == false)
+            {
+                Result.GetNewResult();
+                isHaveResult = true;
+            }
+            
+            if (_botManager.EnableRunBot() && MoneyType == 1)
+            {
+                try
+                {
+                    ConcurrentStack<BetInfo> _overBetsTmp = new ConcurrentStack<BetInfo>(_overBets);
+                    ConcurrentStack<BetInfo> _underBetsTmp = new ConcurrentStack<BetInfo>(_underBets);
+                    var sumaryTai = _overBetsTmp.Sum(x => x.Money);
+                    var sumaryXiu = _underBetsTmp.Sum(x => x.Money);
+
+                    if (sumaryTai != sumaryXiu)
+                    {
+                        var diff = Math.Abs(sumaryTai - sumaryXiu);
+                        if (sumaryTai > sumaryXiu) // Neu ve tai thi refund can cua
+                        {
+                            while (diff > 0)
+                            {
+                                _overBetsTmp.TryPop(out var result);
+
+                                if (result == null)
+                                    continue;
+
+                                var diff1 = diff - result.Money;
+
+                                if (diff1 > 0)
+                                {
+                                    diff = diff1;
+                                    continue;
+                                }
+
+                                if (diff1 <= 0)
+                                {
+                                    NLogManager.LogMessage("add OverBets----:" + Math.Abs(diff1)+" => "+result.IsBotBet);
+                                    _overBetsTmp.Push(new BetInfo() { Money = Math.Abs(diff1), IsBotBet = result.IsBotBet });
+                                    break;
+                                }
+                            }
+                        }
+                        else // Neu ve xiu thi refund can cua
+                        {
+                            while (diff > 0)
+                            {
+                                _underBetsTmp.TryPop(out var result);
+
+                                if (result == null)
+                                    continue;
+
+                                long diff1 = diff - result.Money;
+
+                                if (diff1 > 0)
+                                {
+                                    diff = diff1;
+                                    continue;
+                                }
+
+                                if (diff1 <= 0)
+                                {
+                                    _underBetsTmp.Push(new BetInfo() { Money = Math.Abs(diff1), IsBotBet = result.IsBotBet });
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    var acceptedOver = _overBetsTmp.Sum(x => x.Money); // tổng số tiền cân cửa tài
+                    var acceptedUnder = _underBetsTmp.Sum(x => x.Money); // tổng số tiền cân cửa xỉu
+
+                    var totalBetTai = _overBetsTmp.Where(x => x.IsBotBet == 1).Sum(x => x.Money); // tổng số tiền bot đặt tài khi cân cửa
+                    var totalBetXiu = _underBetsTmp.Where(x => x.IsBotBet == 1).Sum(x => x.Money); // tổng số tiền bot đặt xỉu khi cân cửa
+
+                    var playerMoneyOver = acceptedOver - totalBetTai;
+                    var playerMoneyUnder = acceptedUnder - totalBetXiu;
+                    
+                    foreach (var betInfo in _overBetsTmp)
+                    {
+                        NLogManager.LogMessage("betInfo:" + betInfo.AccountName + " => " + betInfo.Money +" => "+betInfo.IsBotBet);
+                    }
+                    NLogManager.LogMessage("totalBetTai : " + totalBetTai);
+                    NLogManager.LogMessage("totalBetXiu : " + totalBetXiu);
+                    NLogManager.LogMessage("-------------------------------------");
+                    var botMoneyChange = Math.Abs(totalBetTai - totalBetXiu); // số tiền bot cân với người chơi
+                    var playerMoneyChange = Math.Abs(playerMoneyOver - playerMoneyUnder); // số tiền người chơi cân với bot                      
+
+                    var botWin = false; // Neu bot thang
+
+                    // Kiếm tra kết quả
+                    if (acceptedOver == totalBetTai && acceptedUnder == totalBetXiu)
+                    {
+                        NLogManager.LogMessage("Players dont play");
+                    }
+                    else
+                    {
+                        var sumDice = Result.Dice1 + Result.Dice2 + Result.Dice3;
+                        if (sumDice > 10) // Về tài
+                        {
+                            botWin = true;
+                            if (totalBetXiu > totalBetTai) // Nếu bot đặt xỉu nhiều hơn
+                            {
+                                botWin = false;
+                                if (_botManager.Fund - botMoneyChange < playerMoneyChange) // Quỹ bot âm
+                                {
+                                    while (Result.Dice1 + Result.Dice2 + Result.Dice3 > 10) // Chuyển kết quả về xỉu
+                                    {
+                                        Result.GetNewResult();
+                                    }
+                                    botWin = true;
+                                }
+                            }
+                        }
+                        else // Về xỉu
+                        {
+                            botWin = true;
+                            if (totalBetTai > totalBetXiu) // Nếu bot đặt tài nhiều hơn
+                            {
+                                botWin = false;
+                                if (_botManager.Fund - botMoneyChange < playerMoneyChange) // Quỹ bot âm
+                                {
+                                    while (Result.Dice1 + Result.Dice2 + Result.Dice3 <= 10) // Chuyển kết quả về tài
+                                    {
+                                        Result.GetNewResult();
+                                    }
+                                    botWin = true;
+                                }
+
+                            }
+                        }
+                       
+                    }
+
+                    totalBotBet = botWin ? botMoneyChange : -botMoneyChange;
+                   
+                    NLogManager.LogMessage($"Session:{SessionID}|BotWin:{botWin}|TotalBotBet:{totalBotBet}|acceptedOver:{acceptedOver}|acceptedUnder{acceptedUnder}|botOver{totalBetTai}|botunder:{totalBetXiu}|playerOver:{playerMoneyOver}|playerUnder:{playerMoneyUnder}");
+                }
+                catch (Exception ex)
+                {
+                    NLogManager.PublishException(ex);
+                }
+            }
+        }
+
+        public void UpdateResultDice()
+        {
+            if (IsTaiWin)
+            {
+                while (Result.Dice1 + Result.Dice2 + Result.Dice3 <= 10) // Chuyển kết quả về tài
+                {
+                    Result.GetNewResult();
+                }
+            }
+            else
+            {
+                while (Result.Dice1 + Result.Dice2 + Result.Dice3 > 10) // Chuyển kết quả về xỉu
+                {
+                    Result.GetNewResult();
+                }
+            }
+        }
+        private long totalBotBet;
         private void StartShowResultPhrase()
         {
             try
             {
                 CurrentState = GameState.ShowResult;
 
-                Result.GetNewResult();
-                var totalBotBet = 0l;
-                if (_botManager.EnableRunBot() && MoneyType == 1)
-                {
-                    try
-                    {
-                        var sumaryTai = _overBets.Sum(x => x.Money);
-                        var sumaryXiu = _underBets.Sum(x => x.Money);
-
-                        if (sumaryTai != sumaryXiu)
-                        {
-                            var diff = Math.Abs(sumaryTai - sumaryXiu);
-                            if (sumaryTai > sumaryXiu) // Neu ve tai thi refund can cua
-                            {
-                                while (diff > 0)
-                                {
-                                    _overBets.TryPop(out var result);
-
-                                    if (result == null)
-                                        continue;
-
-                                    var diff1 = diff - result.Money;
-
-                                    if (diff1 > 0)
-                                    {
-                                        diff = diff1;
-                                        continue;
-                                    }
-
-                                    if (diff1 <= 0)
-                                    {
-                                        _overBets.Push(new BetInfo(){Money = Math.Abs(diff1), IsBotBet = result.IsBotBet});
-                                        break;
-                                    }
-                                }
-                            }
-                            else // Neu ve xiu thi refund can cua
-                            {
-                                while (diff > 0)
-                                {
-                                    _underBets.TryPop(out var result);
-
-                                    if (result == null)
-                                        continue;
-
-                                    long diff1 = diff - result.Money;
-
-                                    if (diff1 > 0)
-                                    {
-                                        diff = diff1;
-                                        continue;
-                                    }
-
-                                    if (diff1 <= 0)
-                                    {
-                                        _underBets.Push(new BetInfo() { Money = Math.Abs(diff1), IsBotBet = result.IsBotBet });
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-
-                        var acceptedOver = _overBets.Sum(x => x.Money); // tổng số tiền cân cửa tài
-                        var acceptedUnder = _underBets.Sum(x => x.Money); // tổng số tiền cân cửa xỉu
-
-                        var totalBetTai = _overBets.Where(x => x.IsBotBet == 1).Sum(x => x.Money); // tổng số tiền bot đặt tài khi cân cửa
-                        var totalBetXiu = _underBets.Where(x => x.IsBotBet == 1).Sum(x => x.Money); // tổng số tiền bot đặt xỉu khi cân cửa
-
-                        var playerMoneyOver = acceptedOver - totalBetTai;
-                        var playerMoneyUnder = acceptedUnder - totalBetXiu;
-
-                        var botMoneyChange = Math.Abs(totalBetTai - totalBetXiu); // số tiền bot cân với người chơi
-                        var playerMoneyChange = Math.Abs(playerMoneyOver - playerMoneyUnder); // số tiền người chơi cân với bot                      
-
-                        var botWin = false; // Neu bot thang
-
-                        // Kiếm tra kết quả
-                        if (acceptedOver == totalBetTai && acceptedUnder == totalBetXiu)
-                        {
-                            NLogManager.LogMessage("Players dont play");
-                        }
-                        else
-                        {
-                            var sumDice = Result.Dice1 + Result.Dice2 + Result.Dice3;
-
-                            if (sumDice > 10) // Về tài
-                            {
-                                botWin = true;
-                                if (totalBetXiu > totalBetTai) // Nếu bot đặt xỉu nhiều hơn
-                                {
-                                    botWin = false;
-                                    if (_botManager.Fund - botMoneyChange < playerMoneyChange) // Quỹ bot âm
-                                    {
-                                        while (Result.Dice1 + Result.Dice2 + Result.Dice3 > 10) // Chuyển kết quả về xỉu
-                                        {
-                                            Result.GetNewResult();
-                                        }
-
-                                        botWin = true;
-                                    }                                       
-                                }
-                            }
-                            else // Về xỉu
-                            {
-                                botWin = true;
-                                if (totalBetTai > totalBetXiu) // Nếu bot đặt tài nhiều hơn
-                                {
-                                    botWin = false;
-                                    if (_botManager.Fund - botMoneyChange < playerMoneyChange) // Quỹ bot âm
-                                    {                                             
-                                        while (Result.Dice1 + Result.Dice2 + Result.Dice3 <= 10) // Chuyển kết quả về tài
-                                        {
-                                            Result.GetNewResult();
-                                        }
-                                        botWin = true;
-                                    }
-
-                                }
-                            }
-                        }
-
-                        totalBotBet = botWin ? botMoneyChange : -botMoneyChange;
-
-                        NLogManager.LogMessage($"Session:{SessionID}|BotWin:{botWin}|TotalBotBet:{totalBotBet}|acceptedOver:{acceptedOver}|acceptedUnder{acceptedUnder}|botOver{totalBetTai}|botunder:{totalBetXiu}|playerOver:{playerMoneyOver}|playerUnder:{playerMoneyUnder}");
-                    }
-                    catch (Exception ex)
-                    {
-                        NLogManager.PublishException(ex);
-                    }
-                }
+                
 
                 var res = this.Result.Clone() as DiceResult;
                 FinishSession(res, s =>
                 {
+                    NLogManager.LogMessage("UpdateFund:"+totalBotBet);
                     _botManager.UpdateFund(s, totalBotBet);
                 });
             }
@@ -320,11 +421,12 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
             NLogManager.LogMessage("Prepare new round");
             RefreshSession();
             CurrentState = GameState.PrepareNewRound;
+           
         }
 
         public int Bet(string connectionId, long accountId, string username, string clientIP, BetSide betSide, long betAmount, out long sumaryBet, out long newBalance, out string messageError, bool botBet = false)
         {
-            
+
             newBalance = 0;
             sumaryBet = 0;
             messageError = string.Empty;
@@ -385,7 +487,7 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
                                 messageError = "Số dư không đủ!";
                                 return response;
                         }
-
+                        NLogManager.LogMessage("LuckdyDiece Bet:" + response);
                         if (response < 0)
                         {
                             messageError = "Lỗi không xác định!";
@@ -409,12 +511,25 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
                         if (betSide == BetSide.Tai)
                         {
                             sumaryBet = BetTai.AddOrUpdate(accountId, betAmount, (k, v) => v += betAmount);
+                            if (connectionId != "")
+                            {
+                                BetTaiUser.AddOrUpdate(accountId, betAmount, (k, v) => v += betAmount);
+                            }
                             _betInfo.Push(new BetInfo { AccountID = accountId, AccountName = username, Money = betAmount, Side = 0, CreatedTime = DateTime.Now, LogId = logId, LogSumId = logSumId, IsBotBet = botBet ? 1 : 0 });
-                            _overBets.Push((new BetInfo { AccountID = accountId, AccountName = username, Money = betAmount, Side = 0, CreatedTime = DateTime.Now, LogId = logId, LogSumId = logSumId , IsBotBet = botBet ? 1 : 0}));
+                            NLogManager.LogMessage("add OverBets:"+ username + " => "+ betAmount +" => "+ botBet);
+                            _overBets.Push((new BetInfo { AccountID = accountId, AccountName = username, Money = betAmount, Side = 0, CreatedTime = DateTime.Now, LogId = logId, LogSumId = logSumId, IsBotBet = botBet ? 1 : 0 }));
+                            foreach (var betInfo in _overBets)
+                            {
+                                NLogManager.LogMessage("betInfo Push:" + betInfo.AccountName + " => " + betInfo.Money + " => " + betInfo.IsBotBet);
+                            }
                         }
                         else
                         {
                             sumaryBet = BetXiu.AddOrUpdate(accountId, betAmount, (k, v) => v += betAmount);
+                            if (connectionId != "")
+                            {
+                                BetXiuUser.AddOrUpdate(accountId, betAmount, (k, v) => v += betAmount);
+                            }
                             _betInfo.Push(new BetInfo { AccountID = accountId, AccountName = username, Money = betAmount, Side = 1, CreatedTime = DateTime.Now, LogId = logId, LogSumId = logSumId, IsBotBet = botBet ? 1 : 0 });
                             _underBets.Push((new BetInfo { AccountID = accountId, AccountName = username, Money = betAmount, Side = 1, CreatedTime = DateTime.Now, LogId = logId, LogSumId = logSumId, IsBotBet = botBet ? 1 : 0 }));
                         }
@@ -433,7 +548,7 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
                             });
 
                         OnChangedBettingData();
-
+                        PrepareResult();
                         return 1;
                     }
                     finally
@@ -507,7 +622,7 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
                         StartTimer();
                         break;
                     case GameState.Betting:
-                       
+
                         Ellapsed = Models.Config.TimeConfig[(int)CurrentState];
                         ThreadPool.QueueUserWorkItem(_ =>
                         {
@@ -521,7 +636,7 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
                             }
                         });
                         //BotInstance.StartBotTimer();
-                        if(MoneyType == 1)
+                        if (MoneyType == 1)
                             _botManager.Bet();
                         Thread.Sleep(Models.Config.TimeConfig[(int)CurrentState] * 1000);
                         StartEndBettingPhrase();
@@ -594,9 +709,14 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
             _overBets.Clear();
             _underBets.Clear();
             LogSumary.Clear();
+            BetTaiUser.Clear();
+            BetXiuUser.Clear();
+            totalBotBet = 0;
+            isHaveResult = false;
+            AdminControlResult = false;
         }
         #endregion
-        private void FinishSession(DiceResult Result , Action<long> BotFundUpdate)
+        private void FinishSession(DiceResult Result, Action<long> BotFundUpdate)
         {
             Result.SessionId = SessionID;
             List<BetResultInfo> resultInfo = new List<BetResultInfo>();
@@ -619,7 +739,6 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
                 $"TotalMoneyEven = {totalBetEven}, TotalMoneyOdd = {totalBetOdd}, IsFinish = 1, " +
                 $"FirstDice = {Result.Dice1}, SecondDice = {Result.Dice2}, ThirdDice = {Result.Dice3} " +
                 $"where SessionId = {SessionID}");
-
             int dateStatus = _dateStatus == true ? 1 : 0;
 
             if (totalAccountOdd != 0 || totalAccountEven != 0)
@@ -837,7 +956,7 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
             strQuery.AppendLine("end catch");
 
             resultInfo.Reverse();
-            NLogManager.LogMessage($"Update result => {strQuery.ToString()}" );
+            NLogManager.LogMessage($"Update result => {strQuery.ToString()}");
             _cache.PushResult(Result);
 
             _cache.AddSession(new SessionInfo

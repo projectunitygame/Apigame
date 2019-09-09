@@ -49,6 +49,7 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Hubs
             }
             else if (result == 0)
             {
+                Lddb.Instance._userNameChatReal[account.AccountID] = account.DisplayName;
                 Clients.All.Msg(msgChat);
             }
         }

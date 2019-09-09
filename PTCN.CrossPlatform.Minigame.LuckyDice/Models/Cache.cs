@@ -150,6 +150,16 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Models
             return 0;
         }
 
+        public ChatMessage BotChat(string message,string accountName)
+        {
+            int uType = 4;
+            ChatMessage msg = new ChatMessage { T = uType, M = message, U = accountName };
+            _msgs.Add(msg);
+            if (_msgs.Count > 100)
+                _msgs.RemoveAt(0);
+            return msg;
+        }
+
         public List<Rank> GetRanks(int moneyType)
         {
             if (Monitor.TryEnter(_lockRanks, 5000))

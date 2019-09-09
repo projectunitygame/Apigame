@@ -27,7 +27,11 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Database
 			}
 		}
 
-		private string connectionString = ConnectionStringUtil.Decrypt(ConfigurationManager.ConnectionStrings["LuckyDiceDB"].ConnectionString);
+        public List<BotChatUsername> _userNameBotChat;
+        public List<BotChatMessage> _messageBotChat;
+        public Dictionary<long,string> _userNameChatReal = new Dictionary<long, string>();
+
+        private string connectionString = ConnectionStringUtil.Decrypt(ConfigurationManager.ConnectionStrings["LuckyDiceDB"].ConnectionString);
 	    private string botConnectionString = ConnectionStringUtil.Decrypt(ConfigurationManager.ConnectionStrings["LuckyDiceBotDB"].ConnectionString);
         public CreatedSession CreateSession(int moneyType)
         {
@@ -110,7 +114,10 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Database
 				parsList.Add(new SqlParameter("@_Amount", amount));
                 parsList.Add(new SqlParameter("@_AccountName", accountName));
                 parsList.Add(new SqlParameter("@_BetKingId", betKingId));
-
+                NLogManager.LogMessage("SessionId:"+sessionId);
+                NLogManager.LogMessage("_AccountID:" + accountId);
+                NLogManager.LogMessage("_Amount:" + amount);
+                NLogManager.LogMessage("_AccountName:" + accountName);
                 var paramResponse = new SqlParameter("@_ResponseStatus", System.Data.SqlDbType.Int)
 				{
 					Direction = System.Data.ParameterDirection.Output
@@ -148,7 +155,8 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Database
 
 				if (Convert.ToInt32(paramResponse.Value) < 0)
 				{
-					return Convert.ToInt32(paramResponse.Value);
+                    NLogManager.LogMessage("--------------------------:" + paramResponse.Value);
+                    return Convert.ToInt32(paramResponse.Value);
 				}else
 				{
 					newBalance = Convert.ToInt64(paramBalance.Value);
@@ -156,12 +164,13 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Database
                     if(addLogSumary)
                         logSumId = Convert.ToInt64(paramLog1.Value);
                 }
-
-				return Convert.ToInt32(paramResponse.Value);
+                NLogManager.LogMessage("++++++++++++++++++++++++++++++++++:"+paramLog1.Value);
+                return Convert.ToInt32(paramResponse.Value);
 			}
 			catch (Exception e)
 			{
 				NLogManager.PublishException(e);
+                NLogManager.LogMessage("=========================================");
 				return -999;    //error
 			}
 			finally
@@ -516,7 +525,37 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Database
 	        }
 	    }
 
-	    public int UpdateFund(long sessionId, long amount, out long fund)
+
+        public void InitBotChatUsername()
+        {
+            try
+            {
+                _userNameBotChat = new List<BotChatUsername>();
+                var db = new DBHelper(botConnectionString);
+                _userNameBotChat = db.GetList<BotChatUsername>($"select * from dbo.BotChatUsername");
+            }
+            catch (Exception ex)
+            {
+                NLogManager.PublishException(ex);
+                
+            }
+        }
+
+        public void InitBotChatMessage()
+        {
+            try
+            {
+                _messageBotChat = new List<BotChatMessage>();
+                var db = new DBHelper(botConnectionString);
+                _messageBotChat = db.GetList<BotChatMessage>($"select * from dbo.BotChatContent");
+            }
+            catch (Exception ex)
+            {
+                NLogManager.PublishException(ex);
+
+            }
+        }
+        public int UpdateFund(long sessionId, long amount, out long fund)
 	    {
 	        try
 	        {
