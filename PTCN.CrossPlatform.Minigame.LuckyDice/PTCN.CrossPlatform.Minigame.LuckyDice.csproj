@@ -143,6 +143,8 @@
     </Compile>
     <Compile Include="Handlers\BotHandler\BetData.cs" />
     <Compile Include="Handlers\BotHandler\Bot.cs" />
+    <Compile Include="Handlers\BotHandler\BotChatMessage.cs" />
+    <Compile Include="Handlers\BotHandler\BotChatUsername.cs" />
     <Compile Include="Handlers\BotHandler\BotConfiguration.cs" />
     <Compile Include="Handlers\BotHandler\BotData.cs" />
     <Compile Include="Handlers\BotHandler\BotManager.cs" />

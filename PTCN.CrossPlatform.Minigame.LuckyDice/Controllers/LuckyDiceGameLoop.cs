@@ -17,6 +17,7 @@ using System.Xml.Serialization;
 using PTCN.CrossPlatform.Minigame.LuckyDice.Handlers;
 using PTCN.CrossPlatform.Minigame.LuckyDice.Models.EventBetKing;
 using PTCN.CrossPlatform.Minigame.LuckyDice.Models.Chat;
+using System.Web.Configuration;
 
 namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
 {
@@ -196,6 +197,8 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
 
         private void ProcessBotChat(object obj)
         {
+            if (WebConfigurationManager.AppSettings["BOTCHAT"] == "0")
+                return;
             Random rand = new Random();
             if (Lddb.Instance._userNameChatReal.Count <= 3)
             {
@@ -206,7 +209,6 @@ namespace PTCN.CrossPlatform.Minigame.LuckyDice.Controllers
                 string message = Lddb.Instance._messageBotChat[indexMessage].Content;
                 ChatMessage chatMessage = GameManager._cacheGold.BotChat(message, accountName);
                 Clients.Clients.All.Msg(chatMessage);
-
             }
             Lddb.Instance._userNameChatReal = new Dictionary<long, string>();
             int timeDelay = rand.Next(3, 12) * 1000;
